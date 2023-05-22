@@ -1,0 +1,21 @@
+syntax = "proto3";
+package io.carbynestack.amphora.common.grpc;
+
+import "common.proto";
+
+option java_multiple_files = true;
+
+message GrpcSecretShare {
+  bytes data = 1;
+  string uuid = 2;
+  repeated GrpcTag tags = 3;
+}
+
+message GrpcDownloadSecretShareRequest {
+  string uuid = 1;
+}
+
+service IntraVcpService {
+  rpc UploadSecretShare(GrpcSecretShare) returns(GrpcEmpty);
+  rpc DownloadSecretShare(GrpcDownloadSecretShareRequest) returns(GrpcSecretShare);
+}

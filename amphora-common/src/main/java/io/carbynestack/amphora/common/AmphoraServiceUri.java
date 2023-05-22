@@ -28,10 +28,7 @@ public class AmphoraServiceUri {
   public static final String INVALID_SERVICE_ADDRESS_EXCEPTION_MSG =
       "Invalid service address.\n"
           + "Address must match the following examples:\n"
-          + "\t1. https://server:port\n"
-          + "\t2. https://server:port/path\n"
-          + "\t3. https://server\n"
-          + "\t4. https://server/path\n";
+          + "\t1. server:port\n";
   private final URI serviceUri;
   private final URI secretShareUri;
   private final URI s2sSecretShareUri;

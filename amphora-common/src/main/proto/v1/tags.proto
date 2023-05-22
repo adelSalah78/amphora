@@ -1,0 +1,30 @@
+syntax = "proto3";
+package io.carbynestack.amphora.common.grpc;
+
+import "common.proto";
+
+option java_multiple_files = true;
+
+message GrpcTagRequest {
+  string secret_id = 1;
+  string tag_key = 2;
+  GrpcTag tag = 3;
+}
+
+message GrpcUpdateTagRequest {
+  string secret_id = 1;
+  repeated GrpcTag tags = 2;
+}
+
+message GrpcTagsResponse {
+  repeated GrpcTag tags = 1;
+}
+
+service TagsService{
+  rpc GetTags(GrpcTagRequest) returns(GrpcTagsResponse);
+  rpc CreateTag(GrpcTagRequest) returns(GrpcEmpty);
+  rpc UpdateTags(GrpcUpdateTagRequest) returns(GrpcEmpty);
+  rpc GetTag(GrpcTagRequest) returns(GrpcTag);
+  rpc PutTag(GrpcTagRequest) returns(GrpcEmpty);
+  rpc DeleteTag(GrpcTagRequest) returns(GrpcEmpty);
+}

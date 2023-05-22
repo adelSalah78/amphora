@@ -6,16 +6,15 @@
  */
 package io.carbynestack.amphora.client;
 
-import io.carbynestack.amphora.common.AmphoraServiceUri;
 import io.carbynestack.amphora.common.MultiplicationExchangeObject;
+import io.carbynestack.amphora.common.Utils;
 import io.carbynestack.amphora.common.exceptions.AmphoraClientException;
+import io.carbynestack.amphora.common.grpc.GrpcEmpty;
+import io.carbynestack.amphora.common.grpc.InterVcpServiceGrpc;
 import io.vavr.control.Try;
-import java.io.File;
-import java.net.URI;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
@@ -27,41 +26,29 @@ import lombok.extern.slf4j.Slf4j;
 @ToString(callSuper = true)
 @EqualsAndHashCode
 public class DefaultAmphoraInterVcpClient implements AmphoraInterVcpClient {
+  private final List<String> serviceUrls;
 
-  private final List<AmphoraServiceUri> serviceUris;
-  private final AmphoraCommunicationClient<String> communicationClient;
+  private final List<InterVcpServiceGrpc.InterVcpServiceBlockingStub> stubs;
 
   /**
-   * @param withServiceUris Uris of the Amphora Services of all partners in the VC
-   * @param withoutSslValidation Disables the SSL certificate validation check
-   *     <p><b>WARNING</b><br>
-   *     Please be aware, that this option leads to insecure web connections and is meant to be used
-   *     in a local test setup only. Using this option in a productive environment is explicitly
-   *     <u>not recommended</u>.
-   * @param withTrustedCertificates List of trusted certificates (.pem) to be added to the trust
-   *     store.<br>
-   *     This allows tls secured communication with services that do not have a certificate issued
-   *     by an official CA (certificate authority).
-   * @throws AmphoraClientException If the HTTP(S) client could not be instantiated
+   * @param serviceUrls Urls of the Amphora Services of all partners in the VC
+   ** @throws AmphoraClientException If the HTTP(S) client could not be instantiated
    */
   @lombok.Builder(builderMethodName = "Builder")
-  public DefaultAmphoraInterVcpClient(
-      List<AmphoraServiceUri> withServiceUris,
-      boolean withoutSslValidation,
-      List<File> withTrustedCertificates)
-      throws AmphoraClientException {
-    this(
-        withServiceUris,
-        AmphoraCommunicationClient.of(String.class, withoutSslValidation, withTrustedCertificates));
+  DefaultAmphoraInterVcpClient(List<String> serviceUrls) {
+    serviceUrls.forEach(serviceUrl -> {
+      if (serviceUrl == null || serviceUrl.isEmpty()) {
+        throw new IllegalArgumentException("At least one amphora service URI needs to be defined.");
+      }
+    });
+    this.serviceUrls = serviceUrls;
+
+    this.stubs = new ArrayList<>(this.serviceUrls.size());
+    serviceUrls.forEach(uri -> stubs.add(createStub(uri)));
   }
 
-  DefaultAmphoraInterVcpClient(
-      List<AmphoraServiceUri> serviceUris, AmphoraCommunicationClient<String> communicationClient) {
-    this.communicationClient = communicationClient;
-    if (serviceUris == null || serviceUris.isEmpty()) {
-      throw new IllegalArgumentException("At least one amphora service URI needs to be defined.");
-    }
-    this.serviceUris = serviceUris;
+  static InterVcpServiceGrpc.InterVcpServiceBlockingStub createStub(String uri){
+    return InterVcpServiceGrpc.newBlockingStub(Utils.createGrpcChannel(uri));
   }
 
   @Override
@@ -69,20 +56,19 @@ public class DefaultAmphoraInterVcpClient implements AmphoraInterVcpClient {
       throws AmphoraClientException {
     Objects.requireNonNull(
         multiplicationExchangeObject.getOperationId(), "OperationId must not be null");
-    checkSuccess(
-        communicationClient.upload(
-            serviceUris.stream()
-                .map(
-                    uri ->
-                        AmphoraCommunicationClient.RequestParametersWithBody.of(
-                            uri.getInterVcOpenInterimValuesUri(),
-                            Collections.emptyList(),
-                            multiplicationExchangeObject))
-                .collect(Collectors.toList()),
-            Void.class));
+    Map<String, Try<GrpcEmpty>> responses = new HashMap<>();
+    AtomicInteger index = new AtomicInteger();
+    serviceUrls.forEach(url -> {
+              responses.put(url, Try.of(
+                      () -> stubs.get(index.get()).open(Utils.convertToProtoMultiplicationExchangeObject(multiplicationExchangeObject))
+              ));
+              index.getAndIncrement();
+            }
+    );
+    checkSuccess(responses);
   }
 
-  private void checkSuccess(Map<URI, Try<Void>> uriResponseMap) throws AmphoraClientException {
+  private void checkSuccess(Map<String, Try<GrpcEmpty>> uriResponseMap) throws AmphoraClientException {
     List<String> failedRequests =
         uriResponseMap.entrySet().parallelStream()
             .filter(uriTryEntry -> uriTryEntry.getValue().isFailure())

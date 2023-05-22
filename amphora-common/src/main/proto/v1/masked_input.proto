@@ -1,0 +1,20 @@
+syntax = "proto3";
+package io.carbynestack.amphora.common.grpc;
+
+import "common.proto";
+
+option java_multiple_files = true;
+
+message GrpcMaskedInput {
+  string secret_id = 1;
+  repeated GrpcMaskedInputData data = 2;
+  repeated GrpcTag tags = 3;
+}
+
+message GrpcMaskedInputData {
+  bytes value = 1;
+}
+
+service MaskedInputService {
+  rpc upload(GrpcMaskedInput) returns(GrpcEmpty);
+}

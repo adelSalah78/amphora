@@ -1,0 +1,27 @@
+syntax = "proto3";
+package io.carbynestack.amphora.common.grpc;
+
+option java_multiple_files = true;
+
+message GrpcEmpty{
+
+}
+
+enum GrpcTagValueType {
+  STRING = 0;
+  LONG = 1;
+}
+
+message GrpcTag {
+  string key = 1;
+  string value = 2;
+  GrpcTagValueType valueType = 3;
+}
+
+message GrpcOutputDeliveryObject{
+  bytes secret_shares = 1;
+  bytes r_shares = 2;
+  bytes v_shares = 3;
+  bytes w_shares = 4;
+  bytes u_shares = 5;
+}

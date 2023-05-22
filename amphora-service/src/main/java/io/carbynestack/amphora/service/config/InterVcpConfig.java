@@ -12,6 +12,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Configuration
 @ComponentScan(basePackageClasses = {CastorClientProperties.class})
 public class InterVcpConfig {
@@ -19,10 +22,9 @@ public class InterVcpConfig {
   @Bean
   DefaultAmphoraInterVcpClient interVcpClient(AmphoraServiceProperties serviceProperties)
       throws AmphoraClientException {
-    return DefaultAmphoraInterVcpClient.Builder()
-        .withServiceUris(serviceProperties.getVcPartners())
-        .withoutSslValidation(serviceProperties.isNoSslValidation())
-        .withTrustedCertificates(serviceProperties.getTrustedCertificates())
+    List<String> serviceUrls = new ArrayList<>();
+    serviceProperties.getVcPartners().forEach(vcp -> serviceUrls.add(vcp.getServiceUri().getHost() + ":" + vcp.getServiceUri().getPort()));
+    return DefaultAmphoraInterVcpClient.Builder().serviceUrls(serviceUrls)
         .build();
   }
 }

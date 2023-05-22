@@ -7,8 +7,7 @@
 package io.carbynestack.amphora.client;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -16,7 +15,11 @@ import com.google.common.collect.ImmutableList;
 import io.carbynestack.amphora.common.AmphoraServiceUri;
 import io.carbynestack.amphora.common.FactorPair;
 import io.carbynestack.amphora.common.MultiplicationExchangeObject;
+import io.carbynestack.amphora.common.Utils;
 import io.carbynestack.amphora.common.exceptions.AmphoraClientException;
+import io.carbynestack.amphora.common.grpc.GrpcEmpty;
+import io.carbynestack.amphora.common.grpc.GrpcMultiplicationExchangeObject;
+import io.carbynestack.amphora.common.grpc.InterVcpServiceGrpc;
 import io.carbynestack.httpclient.CsHttpClientException;
 import io.vavr.control.Try;
 import java.math.BigInteger;
@@ -24,108 +27,110 @@ import java.net.URI;
 import java.util.*;
 import java.util.stream.Collectors;
 import lombok.SneakyThrows;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class DefaultAmphoraInterVcpClientTest {
-  private final String testUrl1 = "https://amphora.carbynestack.io:8080";
-  private final String testUrl2 = "https://amphora.carbynestack.io:8081";
+  private final String testUrl1 = "amphora.carbynestack.io:8080";
+  private final String testUrl2 = "amphora.carbynestack.io:8081";
   private final UUID testOperationId = UUID.fromString("72753ecc-464f-42c5-954c-9efa7a5b886c");
-
-  @Mock private AmphoraCommunicationClient<String> amphoraCommunicationClient;
 
   private DefaultAmphoraInterVcpClient amphoraInterVcpClient;
 
-  private final List<AmphoraServiceUri> amphoraServiceUris =
-      Arrays.asList(new AmphoraServiceUri(testUrl1), new AmphoraServiceUri(testUrl2));
+  private final List<String> amphoraServiceUris =
+      Arrays.asList(testUrl1, testUrl2);
+
+  List<InterVcpServiceGrpc.InterVcpServiceBlockingStub> stubs;
+
+  MockedStatic<Utils> protoUtils;
+
+  MockedStatic<DefaultAmphoraInterVcpClient> clientUtilities;
 
   @BeforeEach
   public void setUp() {
+    stubs = new ArrayList<>();
+    stubs.add(mock(InterVcpServiceGrpc.InterVcpServiceBlockingStub.class));
+    stubs.add(mock(InterVcpServiceGrpc.InterVcpServiceBlockingStub.class));
+    clientUtilities = Mockito.mockStatic(DefaultAmphoraInterVcpClient.class);
+    clientUtilities
+            .when(() -> DefaultAmphoraInterVcpClient.createStub(testUrl1))
+            .thenReturn(stubs.get(0));
+    clientUtilities
+            .when(() -> DefaultAmphoraInterVcpClient.createStub(testUrl2))
+            .thenReturn(stubs.get(1));
     this.amphoraInterVcpClient =
-        new DefaultAmphoraInterVcpClient(amphoraServiceUris, amphoraCommunicationClient);
+        new DefaultAmphoraInterVcpClient(amphoraServiceUris);
+    protoUtils = Mockito.mockStatic(Utils.class);
+  }
+
+  @AfterEach
+  public void afterEach(){
+    protoUtils.close();
+    clientUtilities.close();
   }
 
   @Test
   void givenNoServiceUriDefined_whenBuildingInterVcClient_thenThrowException() {
-    try (MockedStatic<AmphoraCommunicationClient> communicationClientMockedStatic =
-        mockStatic(AmphoraCommunicationClient.class)) {
-      DefaultAmphoraInterVcpClient.DefaultAmphoraInterVcpClientBuilder clientBuilder =
-          DefaultAmphoraInterVcpClient.Builder();
-      IllegalArgumentException actualIae =
-          assertThrows(IllegalArgumentException.class, clientBuilder::build);
-      assertEquals("At least one amphora service URI needs to be defined.", actualIae.getMessage());
-    }
+    List<String> serviceUrls = new ArrayList<>();
+    serviceUrls.add(null);
+    IllegalArgumentException actualIae =
+        assertThrows(IllegalArgumentException.class, ()-> new DefaultAmphoraInterVcpClient(serviceUrls));
+    assertEquals("At least one amphora service URI needs to be defined.", actualIae.getMessage());
   }
 
   @SneakyThrows
   @Test
   void givenValidExchangeObject_whenOpeningValues_thenSucceed() {
     MultiplicationExchangeObject exchangeObject = getMultiplicationExchangeObject(testOperationId);
-    List<AmphoraCommunicationClient.RequestParametersWithBody<MultiplicationExchangeObject>>
-        params =
-            amphoraServiceUris.stream()
-                .map(
-                    uri ->
-                        AmphoraCommunicationClient.RequestParametersWithBody.of(
-                            uri.getInterVcOpenInterimValuesUri(),
-                            ImmutableList.of(),
-                            exchangeObject))
-                .collect(Collectors.toList());
-    Map<URI, Try<Void>> expectedResponse =
-        amphoraServiceUris.stream()
-            .collect(Collectors.toMap(AmphoraServiceUri::getServiceUri, uri -> Try.success(null)));
-    when(amphoraCommunicationClient.upload(params, Void.class)).thenReturn(expectedResponse);
-    amphoraInterVcpClient.open(exchangeObject);
-    verify(amphoraCommunicationClient, times(1)).upload(params, Void.class);
+    GrpcMultiplicationExchangeObject grpcMultiplicationExchangeObject = Utils.convertToProtoMultiplicationExchangeObject(exchangeObject);
+
+    protoUtils
+            .when(() -> Utils.convertToProtoMultiplicationExchangeObject(any()))
+            .thenReturn(grpcMultiplicationExchangeObject);
+
+    when(stubs.get(0).open(any())).thenReturn(GrpcEmpty.newBuilder().build());
+    when(stubs.get(1).open(any())).thenReturn(GrpcEmpty.newBuilder().build());
+
+    assertDoesNotThrow(()->amphoraInterVcpClient.open(exchangeObject));
   }
 
   @Test
   void givenOnePlayerCannotBeReached_whenOpeningValues_thenThrowException() {
     MultiplicationExchangeObject exchangeObject = getMultiplicationExchangeObject(testOperationId);
-    List<AmphoraCommunicationClient.RequestParametersWithBody<MultiplicationExchangeObject>>
-        params =
-            amphoraServiceUris.stream()
-                .map(
-                    uri ->
-                        AmphoraCommunicationClient.RequestParametersWithBody.of(
-                            uri.getInterVcOpenInterimValuesUri(),
-                            ImmutableList.of(),
-                            exchangeObject))
-                .collect(Collectors.toList());
-    Map<URI, Try<Void>> expectedResponse =
-        amphoraServiceUris.stream()
-            .collect(Collectors.toMap(AmphoraServiceUri::getServiceUri, uri -> Try.success(null)));
-    expectedResponse.put(
-        params.get(params.size() - 1).getUri(), Try.failure(new Exception("Request failed")));
-    when(amphoraCommunicationClient.upload(params, Void.class)).thenReturn(expectedResponse);
-    assertThrows(AmphoraClientException.class, () -> amphoraInterVcpClient.open(exchangeObject));
+    GrpcMultiplicationExchangeObject grpcMultiplicationExchangeObject = Utils.convertToProtoMultiplicationExchangeObject(exchangeObject);
+
+    protoUtils
+            .when(() -> Utils.convertToProtoMultiplicationExchangeObject(any()))
+            .thenReturn(grpcMultiplicationExchangeObject);
+
+    when(stubs.get(0).open(any())).thenReturn(GrpcEmpty.newBuilder().build());
+    when(stubs.get(1).open(any())).thenReturn(GrpcEmpty.newBuilder().build());
+    List<String> serviceUris = new ArrayList<>(amphoraServiceUris);
+    serviceUris.add("test:100");
+    this.amphoraInterVcpClient =
+            new DefaultAmphoraInterVcpClient(serviceUris);
+    assertThrows(AmphoraClientException.class,()->amphoraInterVcpClient.open(exchangeObject));
   }
 
   @Test
   void givenOnePlayerRespondsUnsuccessful_whenOpeningValues_thenThrowException() {
     MultiplicationExchangeObject exchangeObject = getMultiplicationExchangeObject(testOperationId);
-    List<AmphoraCommunicationClient.RequestParametersWithBody<MultiplicationExchangeObject>>
-        params =
-            amphoraServiceUris.stream()
-                .map(
-                    uri ->
-                        AmphoraCommunicationClient.RequestParametersWithBody.of(
-                            uri.getInterVcOpenInterimValuesUri(),
-                            ImmutableList.of(),
-                            exchangeObject))
-                .collect(Collectors.toList());
-    Map<URI, Try<Void>> expectedResponse =
-        amphoraServiceUris.stream()
-            .collect(Collectors.toMap(AmphoraServiceUri::getServiceUri, uri -> Try.success(null)));
-    expectedResponse.put(
-        params.get(params.size() - 1).getUri(), Try.failure(new CsHttpClientException("Failure")));
-    when(amphoraCommunicationClient.upload(params, Void.class)).thenReturn(expectedResponse);
-    assertThrows(AmphoraClientException.class, () -> amphoraInterVcpClient.open(exchangeObject));
+    GrpcMultiplicationExchangeObject grpcMultiplicationExchangeObject = Utils.convertToProtoMultiplicationExchangeObject(exchangeObject);
+
+    protoUtils
+            .when(() -> Utils.convertToProtoMultiplicationExchangeObject(any()))
+            .thenReturn(grpcMultiplicationExchangeObject);
+
+    when(stubs.get(0).open(any())).thenReturn(GrpcEmpty.newBuilder().build());
+    when(stubs.get(1).open(any())).thenThrow(new RuntimeException());
+    assertThrows(AmphoraClientException.class,()->amphoraInterVcpClient.open(exchangeObject));
   }
 
   @Test
@@ -134,7 +139,6 @@ class DefaultAmphoraInterVcpClientTest {
     NullPointerException npe =
         assertThrows(NullPointerException.class, () -> amphoraInterVcpClient.open(exchangeObject));
     assertThat(npe.getMessage()).contains("OperationId must not be null");
-    verify(amphoraCommunicationClient, never()).upload(anyList(), any());
   }
 
   private MultiplicationExchangeObject getMultiplicationExchangeObject(UUID secretId) {

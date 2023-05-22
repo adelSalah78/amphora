@@ -13,6 +13,19 @@
          </licenses>
       </dependency>
       <dependency>
+         <name>Animal Sniffer Annotations</name>
+         <groupId>org.codehaus.mojo</groupId>
+         <artifactId>animal-sniffer-annotations</artifactId>
+         <version>1.21</version>
+         <projectUrl>https://www.mojohaus.org/animal-sniffer/animal-sniffer-annotations</projectUrl>
+         <licenses>
+            <license>
+               <name>MIT license</name>
+               <url>http://www.opensource.org/licenses/mit-license.php</url>
+            </license>
+         </licenses>
+      </dependency>
+      <dependency>
          <name>Apache Commons Codec</name>
          <groupId>commons-codec</groupId>
          <artifactId>commons-codec</artifactId>
@@ -192,6 +205,32 @@
          </licenses>
       </dependency>
       <dependency>
+         <name>Google Android Annotations Library</name>
+         <groupId>com.google.android</groupId>
+         <artifactId>annotations</artifactId>
+         <version>4.1.1.4</version>
+         <projectUrl>http://source.android.com/</projectUrl>
+         <licenses>
+            <license>
+               <name>Apache 2.0</name>
+               <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+            </license>
+         </licenses>
+      </dependency>
+      <dependency>
+         <name>Gson</name>
+         <groupId>com.google.code.gson</groupId>
+         <artifactId>gson</artifactId>
+         <version>2.9.0</version>
+         <projectUrl>https://github.com/google/gson/gson</projectUrl>
+         <licenses>
+            <license>
+               <name>Apache-2.0</name>
+               <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            </license>
+         </licenses>
+      </dependency>
+      <dependency>
          <name>Guava InternalFutureFailureAccess and InternalFutures</name>
          <groupId>com.google.guava</groupId>
          <artifactId>failureaccess</artifactId>
@@ -227,6 +266,110 @@
             <license>
                <name>Apache License, Version 2.0</name>
                <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            </license>
+         </licenses>
+      </dependency>
+      <dependency>
+         <name>io.grpc:grpc-api</name>
+         <groupId>io.grpc</groupId>
+         <artifactId>grpc-api</artifactId>
+         <version>1.49.0</version>
+         <projectUrl>https://github.com/grpc/grpc-java</projectUrl>
+         <licenses>
+            <license>
+               <name>Apache 2.0</name>
+               <url>https://opensource.org/licenses/Apache-2.0</url>
+            </license>
+         </licenses>
+      </dependency>
+      <dependency>
+         <name>io.grpc:grpc-context</name>
+         <groupId>io.grpc</groupId>
+         <artifactId>grpc-context</artifactId>
+         <version>1.49.0</version>
+         <projectUrl>https://github.com/grpc/grpc-java</projectUrl>
+         <licenses>
+            <license>
+               <name>Apache 2.0</name>
+               <url>https://opensource.org/licenses/Apache-2.0</url>
+            </license>
+         </licenses>
+      </dependency>
+      <dependency>
+         <name>io.grpc:grpc-core</name>
+         <groupId>io.grpc</groupId>
+         <artifactId>grpc-core</artifactId>
+         <version>1.49.0</version>
+         <projectUrl>https://github.com/grpc/grpc-java</projectUrl>
+         <licenses>
+            <license>
+               <name>Apache 2.0</name>
+               <url>https://opensource.org/licenses/Apache-2.0</url>
+            </license>
+         </licenses>
+      </dependency>
+      <dependency>
+         <name>io.grpc:grpc-netty-shaded</name>
+         <groupId>io.grpc</groupId>
+         <artifactId>grpc-netty-shaded</artifactId>
+         <version>1.49.0</version>
+         <projectUrl>https://github.com/grpc/grpc-java</projectUrl>
+         <licenses>
+            <license>
+               <name>Apache 2.0</name>
+               <url>https://opensource.org/licenses/Apache-2.0</url>
+            </license>
+         </licenses>
+      </dependency>
+      <dependency>
+         <name>io.grpc:grpc-protobuf</name>
+         <groupId>io.grpc</groupId>
+         <artifactId>grpc-protobuf</artifactId>
+         <version>1.49.0</version>
+         <projectUrl>https://github.com/grpc/grpc-java</projectUrl>
+         <licenses>
+            <license>
+               <name>Apache 2.0</name>
+               <url>https://opensource.org/licenses/Apache-2.0</url>
+            </license>
+         </licenses>
+      </dependency>
+      <dependency>
+         <name>io.grpc:grpc-protobuf-lite</name>
+         <groupId>io.grpc</groupId>
+         <artifactId>grpc-protobuf-lite</artifactId>
+         <version>1.49.0</version>
+         <projectUrl>https://github.com/grpc/grpc-java</projectUrl>
+         <licenses>
+            <license>
+               <name>Apache 2.0</name>
+               <url>https://opensource.org/licenses/Apache-2.0</url>
+            </license>
+         </licenses>
+      </dependency>
+      <dependency>
+         <name>io.grpc:grpc-services</name>
+         <groupId>io.grpc</groupId>
+         <artifactId>grpc-services</artifactId>
+         <version>1.49.0</version>
+         <projectUrl>https://github.com/grpc/grpc-java</projectUrl>
+         <licenses>
+            <license>
+               <name>Apache 2.0</name>
+               <url>https://opensource.org/licenses/Apache-2.0</url>
+            </license>
+         </licenses>
+      </dependency>
+      <dependency>
+         <name>io.grpc:grpc-stub</name>
+         <groupId>io.grpc</groupId>
+         <artifactId>grpc-stub</artifactId>
+         <version>1.49.0</version>
+         <projectUrl>https://github.com/grpc/grpc-java</projectUrl>
+         <licenses>
+            <license>
+               <name>Apache 2.0</name>
+               <url>https://opensource.org/licenses/Apache-2.0</url>
             </license>
          </licenses>
       </dependency>
@@ -283,6 +426,19 @@
          </licenses>
       </dependency>
       <dependency>
+         <name>perfmark:perfmark-api</name>
+         <groupId>io.perfmark</groupId>
+         <artifactId>perfmark-api</artifactId>
+         <version>0.25.0</version>
+         <projectUrl>https://github.com/perfmark/perfmark</projectUrl>
+         <licenses>
+            <license>
+               <name>Apache 2.0</name>
+               <url>https://opensource.org/licenses/Apache-2.0</url>
+            </license>
+         </licenses>
+      </dependency>
+      <dependency>
          <name>Project Lombok</name>
          <groupId>org.projectlombok</groupId>
          <artifactId>lombok</artifactId>
@@ -292,6 +448,45 @@
             <license>
                <name>The MIT License</name>
                <url>https://projectlombok.org/LICENSE</url>
+            </license>
+         </licenses>
+      </dependency>
+      <dependency>
+         <name>proto-google-common-protos</name>
+         <groupId>com.google.api.grpc</groupId>
+         <artifactId>proto-google-common-protos</artifactId>
+         <version>2.9.0</version>
+         <projectUrl>https://github.com/googleapis/java-iam/proto-google-common-protos</projectUrl>
+         <licenses>
+            <license>
+               <name>Apache-2.0</name>
+               <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            </license>
+         </licenses>
+      </dependency>
+      <dependency>
+         <name>Protocol Buffers [Core]</name>
+         <groupId>com.google.protobuf</groupId>
+         <artifactId>protobuf-java</artifactId>
+         <version>3.21.1</version>
+         <projectUrl>https://developers.google.com/protocol-buffers/protobuf-java/</projectUrl>
+         <licenses>
+            <license>
+               <name>BSD-3-Clause</name>
+               <url>https://opensource.org/licenses/BSD-3-Clause</url>
+            </license>
+         </licenses>
+      </dependency>
+      <dependency>
+         <name>Protocol Buffers [Util]</name>
+         <groupId>com.google.protobuf</groupId>
+         <artifactId>protobuf-java-util</artifactId>
+         <version>3.21.1</version>
+         <projectUrl>https://developers.google.com/protocol-buffers/protobuf-java-util/</projectUrl>
+         <licenses>
+            <license>
+               <name>BSD-3-Clause</name>
+               <url>https://opensource.org/licenses/BSD-3-Clause</url>
             </license>
          </licenses>
       </dependency>

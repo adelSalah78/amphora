@@ -1,0 +1,16 @@
+syntax = "proto3";
+package io.carbynestack.amphora.common.grpc;
+
+import "common.proto";
+
+option java_multiple_files = true;
+
+
+message GrpcInputMaskRequest{
+  string request_id = 1;
+  int64 count = 2;
+}
+
+service InputMaskShareService{
+  rpc GetInputMask(GrpcInputMaskRequest) returns(GrpcOutputDeliveryObject);
+}

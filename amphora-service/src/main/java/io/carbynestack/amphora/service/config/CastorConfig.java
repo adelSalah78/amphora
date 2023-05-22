@@ -9,32 +9,19 @@ package io.carbynestack.amphora.service.config;
 
 import io.carbynestack.castor.client.download.CastorIntraVcpClient;
 import io.carbynestack.castor.client.download.DefaultCastorIntraVcpClient;
-import java.io.File;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.client.RestTemplate;
 
 @Configuration
 @ComponentScan(basePackageClasses = {CastorClientProperties.class})
 public class CastorConfig {
 
   @Bean
-  RestTemplate restTemplate() {
-    return new RestTemplate();
-  }
-
-  @Bean
   CastorIntraVcpClient castorClient(CastorClientProperties castorProperties) {
     DefaultCastorIntraVcpClient.Builder clientBuilder =
         DefaultCastorIntraVcpClient.builder(castorProperties.getServiceUri());
-    if (castorProperties.isNoSslValidation()) {
-      clientBuilder.withoutSslCertificateValidation();
-    } else if (!castorProperties.getTrustedCertificates().isEmpty()) {
-      for (File certificate : castorProperties.getTrustedCertificates()) {
-        clientBuilder.withTrustedCertificate(certificate);
-      }
-    }
+    clientBuilder.withoutSslCertificateValidation();
     return clientBuilder.build();
   }
 }
