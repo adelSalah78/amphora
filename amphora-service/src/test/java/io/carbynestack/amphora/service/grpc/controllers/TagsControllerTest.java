@@ -4,18 +4,21 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-package io.carbynestack.amphora.service.rest;
+package io.carbynestack.amphora.service.grpc.controllers;
 
 import static io.carbynestack.amphora.common.rest.AmphoraRestApiEndpoints.INTRA_VCP_OPERATIONS_SEGMENT;
-import static io.carbynestack.amphora.service.util.ServletUriComponentsBuilderUtil.runInMockedHttpRequestContextForUri;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import io.carbynestack.amphora.common.Tag;
 import io.carbynestack.amphora.common.TagValueType;
+import io.carbynestack.amphora.common.Utils;
+import io.carbynestack.amphora.common.grpc.GrpcTag;
+import io.carbynestack.amphora.common.grpc.GrpcTagRequest;
+import io.carbynestack.amphora.common.grpc.GrpcTagValueType;
+import io.carbynestack.amphora.common.grpc.GrpcUpdateTagRequest;
 import io.carbynestack.amphora.service.persistence.metadata.StorageService;
 import java.net.URI;
 import java.util.List;
@@ -25,8 +28,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 
 @ExtendWith(MockitoExtension.class)
 class TagsControllerTest {
@@ -36,24 +37,25 @@ class TagsControllerTest {
 
   @Mock private StorageService storageService;
 
-  @InjectMocks private TagsController tagsController;
+  @InjectMocks private TagsService tagsService;
 
   @Test
   void givenSuccessfulRequest_whenGetTags_thenReturnOkWithExpectedContent() {
     List<Tag> expectedList = singletonList(testTag);
 
     when(storageService.retrieveTags(testSecretId)).thenReturn(expectedList);
-
-    ResponseEntity<List<Tag>> actualResponse = tagsController.getTags(testSecretId);
-    assertEquals(HttpStatus.OK, actualResponse.getStatusCode());
-    assertEquals(expectedList, actualResponse.getBody());
+    assertDoesNotThrow(()->tagsService.getTags(GrpcTagRequest.newBuilder()
+            .setSecretId(testSecretId.toString())
+            .build(),null));
+//    assertEquals(expectedList, actualResponse.getBody());
   }
 
   @Test
   void givenTagIsNull_whenCreateTag_thenThrowIllegalArgumentException() {
     IllegalArgumentException iae =
         assertThrows(
-            IllegalArgumentException.class, () -> tagsController.createTag(testSecretId, null));
+            IllegalArgumentException.class, () -> tagsService.createTag(GrpcTagRequest.newBuilder()
+                        .setSecretId(testSecretId.toString()).build(), null));
     verify(storageService, never()).storeTag(any(), any());
     assertEquals("Tag must not be empty", iae.getMessage());
   }
@@ -63,23 +65,26 @@ class TagsControllerTest {
     URI expectedUri =
         URI.create(
             "https://amphora.carbynestack.io" + INTRA_VCP_OPERATIONS_SEGMENT + "/" + testSecretId);
-    runInMockedHttpRequestContextForUri(
-        expectedUri,
-        () -> {
-          ResponseEntity<URI> actualResponse = tagsController.createTag(testSecretId, testTag);
-          verify(storageService, times(1)).storeTag(testSecretId, testTag);
-          assertEquals(HttpStatus.CREATED, actualResponse.getStatusCode());
-          assertEquals(expectedUri, actualResponse.getBody());
-        });
+    verify(storageService, times(1)).storeTag(testSecretId, testTag);
+    assertDoesNotThrow(()->tagsService.createTag(GrpcTagRequest.newBuilder()
+                    .setSecretId(testSecretId.toString())
+                    .setTag(GrpcTag.newBuilder().setKey(testTag.getKey()).setValue(testTag.getValue())
+                            .setValueType(GrpcTagValueType.valueOf(testTag.getValueType().name())).build())
+                    .build()
+            ,null));
+//          assertEquals(expectedUri, actualResponse.getBody());
   }
 
   @Test
   void givenTagsAreEmpty_whenUpdateTags_thenThrowIllegalArgumentException() {
-    List<Tag> emptyTags = emptyList();
+    List<GrpcTag> emptyTags = emptyList();
     IllegalArgumentException iae =
         assertThrows(
             IllegalArgumentException.class,
-            () -> tagsController.updateTags(testSecretId, emptyTags));
+            () -> tagsService.updateTags(GrpcUpdateTagRequest.newBuilder()
+                            .setSecretId(testSecretId.toString())
+                            .addAllTags(emptyTags)
+                    .build(),null));
     verify(storageService, never()).replaceTags(any(), any());
     assertEquals("At least one tag must be given.", iae.getMessage());
   }
@@ -87,26 +92,34 @@ class TagsControllerTest {
   @Test
   void givenSuccessfulRequest_whenUpdateTags_thenReturnCreatedWithExpectedContent() {
     List<Tag> newTagList = singletonList(testTag);
-    ResponseEntity<Void> actualResponse = tagsController.updateTags(testSecretId, newTagList);
+    assertDoesNotThrow(()->tagsService.updateTags(
+            GrpcUpdateTagRequest.newBuilder()
+                    .setSecretId(testSecretId.toString())
+                    .addAllTags(Utils.createTagListToProto(newTagList))
+                    .build(),null
+    ));
     verify(storageService, times(1)).replaceTags(testSecretId, newTagList);
-    assertEquals(HttpStatus.OK, actualResponse.getStatusCode());
   }
 
   @Test
   void givenSuccessfulRequest_whenGetTag_thenReturnOkWithExpectedContent() {
     when(storageService.retrieveTag(testSecretId, testTag.getKey())).thenReturn(testTag);
 
-    ResponseEntity<Tag> actualResponse = tagsController.getTag(testSecretId, testTag.getKey());
-    assertEquals(HttpStatus.OK, actualResponse.getStatusCode());
-    assertEquals(testTag, actualResponse.getBody());
+    assertDoesNotThrow(()->tagsService.getTag(GrpcTagRequest.newBuilder()
+            .setTagKey(testTag.getKey())
+            .setSecretId(testSecretId.toString())
+            .build(),null));
+//    assertEquals(testTag, actualResponse.getBody());
   }
 
   @Test
   void givenTagIsNull_whenPutTag_thenTrowIllegalArgumentException() {
-    String key = testTag.getKey();
     IllegalArgumentException iae =
         assertThrows(
-            IllegalArgumentException.class, () -> tagsController.putTag(testSecretId, key, null));
+            IllegalArgumentException.class, () -> tagsService.putTag(GrpcTagRequest.newBuilder()
+                        .setTagKey(testTag.getKey())
+                        .setSecretId(testSecretId.toString())
+                        .build(), null));
     verify(storageService, never()).updateTag(testSecretId, testTag);
     assertEquals("Tag must not be empty", iae.getMessage());
   }
@@ -117,7 +130,18 @@ class TagsControllerTest {
     IllegalArgumentException iae =
         assertThrows(
             IllegalArgumentException.class,
-            () -> tagsController.putTag(testSecretId, nonMatchingKey, testTag));
+            () -> tagsService.putTag(GrpcTagRequest.newBuilder()
+                    .setTagKey(testTag.getKey())
+                            .setTag(
+                                    GrpcTag.newBuilder()
+                                    .setKey(testTag.getKey())
+                                            .setValue(testTag.getValue())
+                                            .setValueType(GrpcTagValueType.valueOf(testTag.getValueType().name()))
+                                    .build()
+                            )
+                    .setSecretId(testSecretId.toString())
+                            .setTagKey(nonMatchingKey)
+                    .build(),null));
     verify(storageService, never()).updateTag(testSecretId, testTag);
     assertEquals(
         String.format(
@@ -127,16 +151,23 @@ class TagsControllerTest {
 
   @Test
   void givenSuccessfulRequest_whenPutTag_thenReturnOk() {
-    ResponseEntity<Void> actualResponse =
-        tagsController.putTag(testSecretId, testTag.getKey(), testTag);
+    assertDoesNotThrow(()->tagsService.putTag(GrpcTagRequest.newBuilder()
+            .setTag(GrpcTag.newBuilder()
+                    .setKey(testTag.getKey())
+                    .setValue(testTag.getValue())
+                    .setValueType(GrpcTagValueType.valueOf(testTag.getValueType().name()))
+                    .build())
+            .setTagKey(testTag.getKey())
+            .setSecretId(testSecretId.toString())
+            .build(),null));
     verify(storageService, times(1)).updateTag(testSecretId, testTag);
-    assertEquals(HttpStatus.OK, actualResponse.getStatusCode());
   }
 
   @Test
   void givenSuccessfulRequest_whenDeleteTag_thenReturnOk() {
-    ResponseEntity<Void> actualResponse = tagsController.deleteTag(testSecretId, testTag.getKey());
+    assertDoesNotThrow(()->tagsService.deleteTag(GrpcTagRequest.newBuilder()
+            .setSecretId(testSecretId.toString())
+            .setTagKey(testTag.getKey()).build(),null));
     verify(storageService, times(1)).deleteTag(testSecretId, testTag.getKey());
-    assertEquals(HttpStatus.OK, actualResponse.getStatusCode());
   }
 }

@@ -15,7 +15,11 @@ message GrpcDownloadSecretShareRequest {
   string uuid = 1;
 }
 
+message GrpcSecretShareResponse {
+  string uuid = 1;
+}
+
 service IntraVcpService {
-  rpc UploadSecretShare(GrpcSecretShare) returns(GrpcEmpty);
+  rpc UploadSecretShare(GrpcSecretShare) returns(GrpcSecretShareResponse);
   rpc DownloadSecretShare(GrpcDownloadSecretShareRequest) returns(GrpcSecretShare);
 }

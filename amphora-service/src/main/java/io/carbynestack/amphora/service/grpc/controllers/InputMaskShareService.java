@@ -1,5 +1,6 @@
 package io.carbynestack.amphora.service.grpc.controllers;
 
+import com.google.common.base.Strings;
 import io.carbynestack.amphora.common.OutputDeliveryObject;
 import io.carbynestack.amphora.common.Utils;
 import io.carbynestack.amphora.common.grpc.GrpcInputMaskRequest;
@@ -25,7 +26,9 @@ public class InputMaskShareService extends InputMaskShareServiceGrpc.InputMaskSh
 
     @Override
     public void getInputMask(GrpcInputMaskRequest request, StreamObserver<GrpcOutputDeliveryObject> responseObserver) {
-        notNull(request.getRequestId(), REQUEST_IDENTIFIER_MUST_NOT_BE_NULL_EXCEPTION_MSG);
+        if(Strings.isNullOrEmpty(request.getRequestId())){
+            throw new IllegalArgumentException(REQUEST_IDENTIFIER_MUST_NOT_BE_NULL_EXCEPTION_MSG);
+        }
         isTrue(request.getCount() > 0, TOO_LESS_INPUT_MASKS_EXCEPTION_MSG);
         OutputDeliveryObject outputDeliveryObject = inputMaskCachingService.getInputMasksAsOutputDeliveryObject(
                 UUID.fromString(request.getRequestId())

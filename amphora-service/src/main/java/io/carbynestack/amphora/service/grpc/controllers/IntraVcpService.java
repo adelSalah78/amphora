@@ -1,10 +1,7 @@
 package io.carbynestack.amphora.service.grpc.controllers;
 
 import io.carbynestack.amphora.common.Utils;
-import io.carbynestack.amphora.common.grpc.GrpcDownloadSecretShareRequest;
-import io.carbynestack.amphora.common.grpc.GrpcEmpty;
-import io.carbynestack.amphora.common.grpc.GrpcSecretShare;
-import io.carbynestack.amphora.common.grpc.IntraVcpServiceGrpc;
+import io.carbynestack.amphora.common.grpc.*;
 import io.carbynestack.amphora.service.persistence.metadata.StorageService;
 import io.grpc.stub.StreamObserver;
 import lombok.AllArgsConstructor;
@@ -17,11 +14,12 @@ import java.util.UUID;
 @AllArgsConstructor
 public class IntraVcpService extends IntraVcpServiceGrpc.IntraVcpServiceImplBase {
     private final StorageService storageService;
+
     @Override
-    public void uploadSecretShare(GrpcSecretShare request, StreamObserver<GrpcEmpty> responseObserver) {
+    public void uploadSecretShare(GrpcSecretShare request, StreamObserver<GrpcSecretShareResponse> responseObserver) {
         Assert.notNull(request, "SecretShare must not be null");
-        storageService.storeSecretShare(Utils.convertFromProtoSecretShare(request));
-        responseObserver.onNext(GrpcEmpty.newBuilder().build());
+        String uuid = storageService.storeSecretShare(Utils.convertFromProtoSecretShare(request));
+        responseObserver.onNext(GrpcSecretShareResponse.newBuilder().setUuid(uuid).build());
         responseObserver.onCompleted();
     }
 

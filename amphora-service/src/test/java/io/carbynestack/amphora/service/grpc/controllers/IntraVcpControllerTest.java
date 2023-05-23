@@ -4,71 +4,67 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-package io.carbynestack.amphora.service.rest;
+package io.carbynestack.amphora.service.grpc.controllers;
 
 import static io.carbynestack.amphora.common.rest.AmphoraRestApiEndpoints.INTRA_VCP_OPERATIONS_SEGMENT;
-import static io.carbynestack.amphora.service.util.ServletUriComponentsBuilderUtil.runInMockedHttpRequestContextForUri;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 import io.carbynestack.amphora.common.SecretShare;
+import io.carbynestack.amphora.common.Utils;
+import io.carbynestack.amphora.common.grpc.GrpcDownloadSecretShareRequest;
+import io.carbynestack.amphora.common.grpc.GrpcSecretShare;
 import io.carbynestack.amphora.service.persistence.metadata.StorageService;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.UUID;
+
+import io.grpc.stub.StreamObserver;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 
 @ExtendWith(MockitoExtension.class)
 class IntraVcpControllerTest {
-
   @Mock private StorageService storageService;
 
-  @InjectMocks private IntraVcpController intraVcpController;
+  @InjectMocks private IntraVcpService intraVcpService;
 
   @Test
   void givenArgumentIsNull_whenUploadSecretShare_thenThrowIllegalArgumentException() {
     IllegalArgumentException iae =
         assertThrows(
-            IllegalArgumentException.class, () -> intraVcpController.uploadSecretShare(null));
+            IllegalArgumentException.class, () -> intraVcpService.uploadSecretShare(null,new StreamObserverTestUtils.IntraVcpStreamObserver()));
     assertEquals("SecretShare must not be null", iae.getMessage());
   }
 
   @Test
   void givenSuccessfulRequest_whenUploadSecretShare_thenReturnCreatedWithExpectedContent() {
     UUID secretShareId = UUID.fromString("3bcf8308-8f50-4d24-a37b-b0075bb5e779");
-    URI expectedUri =
-        URI.create(
-            "https://amphora.carbynestack.io" + INTRA_VCP_OPERATIONS_SEGMENT + "/" + secretShareId);
-    SecretShare secretShare = SecretShare.builder().secretId(secretShareId).build();
+    SecretShare secretShare = SecretShare.builder().data(new byte[32]).tags(new ArrayList<>()).secretId(secretShareId).build();
 
     when(storageService.storeSecretShare(secretShare)).thenReturn(secretShareId.toString());
 
-    runInMockedHttpRequestContextForUri(
-        expectedUri,
-        () -> {
-          ResponseEntity<URI> actualResponse = intraVcpController.uploadSecretShare(secretShare);
-          assertEquals(HttpStatus.CREATED, actualResponse.getStatusCode());
-          assertEquals(expectedUri, actualResponse.getBody());
-        });
+    StreamObserverTestUtils.IntraVcpStreamObserver streamObserver = new StreamObserverTestUtils.IntraVcpStreamObserver();
+
+    assertDoesNotThrow(()->intraVcpService.uploadSecretShare(Utils.convertToProtoSecretShare(secretShare),streamObserver));
+    assertEquals(Utils.convertToProtoSecretShare(secretShare).getUuid(), streamObserver.grpcSecretShareResponse.getUuid());
   }
 
   @Test
   void givenSuccessfulRequest_whenDownloadSecretShare_thenReturnOkWithExpectedContent() {
     UUID secretShareId = UUID.fromString("3bcf8308-8f50-4d24-a37b-b0075bb5e779");
-    SecretShare expectedSecretShare = SecretShare.builder().secretId(secretShareId).build();
+    SecretShare expectedSecretShare = SecretShare.builder().data(new byte[32]).tags(new ArrayList<>()).secretId(secretShareId).build();
 
     when(storageService.getSecretShare(secretShareId)).thenReturn(expectedSecretShare);
 
-    ResponseEntity<SecretShare> actualResponse =
-        intraVcpController.downloadSecretShare(secretShareId);
+    StreamObserverTestUtils.IntraVcpStreamObserver streamObserver = new StreamObserverTestUtils.IntraVcpStreamObserver();
 
-    assertEquals(HttpStatus.OK, actualResponse.getStatusCode());
-    assertEquals(expectedSecretShare, actualResponse.getBody());
+    assertDoesNotThrow(()->intraVcpService.downloadSecretShare(GrpcDownloadSecretShareRequest.newBuilder()
+            .setUuid(secretShareId.toString()).build(),streamObserver));
+
+    assertEquals(Utils.convertToProtoSecretShare(expectedSecretShare), streamObserver.secretShare);
   }
 }

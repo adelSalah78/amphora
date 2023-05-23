@@ -5,29 +5,32 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package io.carbynestack.amphora.service.rest;
+package io.carbynestack.amphora.service.grpc.controllers;
 
-import static io.carbynestack.amphora.service.rest.InputMaskShareController.REQUEST_IDENTIFIER_MUST_NOT_BE_NULL_EXCEPTION_MSG;
-import static io.carbynestack.amphora.service.rest.InputMaskShareController.TOO_LESS_INPUT_MASKS_EXCEPTION_MSG;
+import static io.carbynestack.amphora.service.grpc.controllers.InputMaskShareService.REQUEST_IDENTIFIER_MUST_NOT_BE_NULL_EXCEPTION_MSG;
+import static io.carbynestack.amphora.service.grpc.controllers.InputMaskShareService.TOO_LESS_INPUT_MASKS_EXCEPTION_MSG;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
 import io.carbynestack.amphora.common.OutputDeliveryObject;
+import io.carbynestack.amphora.common.grpc.GrpcInputMaskRequest;
+import io.carbynestack.amphora.common.grpc.GrpcOutputDeliveryObject;
 import io.carbynestack.amphora.service.AmphoraTestData;
+import io.carbynestack.amphora.service.grpc.controllers.InputMaskShareService;
 import io.carbynestack.amphora.service.persistence.cache.InputMaskCachingService;
 import io.carbynestack.castor.common.entities.Field;
 import io.carbynestack.castor.common.entities.InputMask;
 import io.carbynestack.castor.common.entities.TupleList;
 import java.util.UUID;
+
+import io.grpc.stub.StreamObserver;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 
 @ExtendWith(MockitoExtension.class)
 class InputMaskShareControllerTest {
@@ -37,7 +40,36 @@ class InputMaskShareControllerTest {
 
   @Mock private InputMaskCachingService inputMaskStore;
 
-  @InjectMocks private InputMaskShareController inputMaskShareController;
+  @InjectMocks private InputMaskShareService inputMaskShareService;
+
+  static class MyStreamObserver implements StreamObserver {
+
+    public OutputDeliveryObject body;
+
+    @Override
+    public void onNext(Object o) {
+
+      GrpcOutputDeliveryObject grpcOutputDeliveryObject = (GrpcOutputDeliveryObject) o;
+
+      body = new OutputDeliveryObject(
+              grpcOutputDeliveryObject.getSecretShares().toByteArray(),
+              grpcOutputDeliveryObject.getRShares().toByteArray(),
+              grpcOutputDeliveryObject.getVShares().toByteArray(),
+              grpcOutputDeliveryObject.getWShares().toByteArray(),
+              grpcOutputDeliveryObject.getUShares().toByteArray()
+      );
+    }
+
+    @Override
+    public void onError(Throwable throwable) {
+
+    }
+
+    @Override
+    public void onCompleted() {
+
+    }
+  }
 
   @SneakyThrows
   @Test
@@ -50,11 +82,12 @@ class InputMaskShareControllerTest {
     when(inputMaskStore.getInputMasksAsOutputDeliveryObject(testRequestId, testInputMasks.size()))
         .thenReturn(testOdo);
 
-    ResponseEntity<OutputDeliveryObject> responseEntity =
-        inputMaskShareController.getInputMasks(testRequestId, validNumberOfTuples);
+    MyStreamObserver response = new MyStreamObserver();
+    inputMaskShareService.getInputMask(GrpcInputMaskRequest.newBuilder()
+                        .setRequestId(testRequestId.toString()).setCount(validNumberOfTuples).build()
+                , response);
 
-    assertEquals(testOdo, responseEntity.getBody());
-    assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+    assertEquals(testOdo, response.body);
   }
 
   @Test
@@ -62,7 +95,7 @@ class InputMaskShareControllerTest {
     IllegalArgumentException iae =
         assertThrows(
             IllegalArgumentException.class,
-            () -> inputMaskShareController.getInputMasks(null, validNumberOfTuples));
+            () -> inputMaskShareService.getInputMask(GrpcInputMaskRequest.newBuilder().build(), null));
     assertEquals(REQUEST_IDENTIFIER_MUST_NOT_BE_NULL_EXCEPTION_MSG, iae.getMessage());
   }
 
@@ -71,7 +104,8 @@ class InputMaskShareControllerTest {
     IllegalArgumentException iae =
         assertThrows(
             IllegalArgumentException.class,
-            () -> inputMaskShareController.getInputMasks(testRequestId, invalidNumberOfTuples));
+            () -> inputMaskShareService.getInputMask(GrpcInputMaskRequest.newBuilder()
+                    .setRequestId(testRequestId.toString()).setCount(invalidNumberOfTuples).build(),null));
     assertEquals(TOO_LESS_INPUT_MASKS_EXCEPTION_MSG, iae.getMessage());
   }
 }

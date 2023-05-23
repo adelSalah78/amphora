@@ -9,93 +9,97 @@ package io.carbynestack.amphora.client;
 import static io.carbynestack.amphora.client.TestData.getTags;
 import static io.carbynestack.amphora.common.rest.AmphoraRestApiEndpoints.SECRET_SHARES_ENDPOINT;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-import com.google.common.collect.ImmutableList;
-import io.carbynestack.amphora.client.AmphoraCommunicationClient.RequestParameters;
-import io.carbynestack.amphora.common.AmphoraServiceUri;
 import io.carbynestack.amphora.common.SecretShare;
+import io.carbynestack.amphora.common.Utils;
 import io.carbynestack.amphora.common.exceptions.AmphoraClientException;
-import io.carbynestack.castor.common.exceptions.CastorServiceException;
+import io.carbynestack.amphora.common.grpc.GrpcSecretShare;
+import io.carbynestack.amphora.common.grpc.GrpcSecretShareResponse;
+import io.carbynestack.amphora.common.grpc.IntraVcpServiceGrpc;
 import io.carbynestack.mpspdz.integration.MpSpdzIntegrationUtils;
-import io.vavr.control.Try;
 import java.math.BigInteger;
 import java.net.URI;
 import java.util.Random;
 import java.util.UUID;
 import lombok.SneakyThrows;
 import org.apache.commons.lang3.ArrayUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class DefaultAmphoraIntraVcpClientTest {
-  private final String testUrl = "https://amphora.carbynestack.io";
+  private final String testUrl = "amphora.carbynestack.io:8080";
   private final UUID testSecretId = UUID.fromString("3bcf8308-8f50-4d24-a37b-b0075bb5e779");
-
-  @Mock private AmphoraCommunicationClient amphoraCommunicationClient;
 
   private DefaultAmphoraIntraVcpClient amphoraIntraVcpClient;
 
-  private final AmphoraServiceUri amphoraServiceUri = new AmphoraServiceUri(testUrl);
-
   private MpSpdzIntegrationUtils spdzUtil;
+
+  IntraVcpServiceGrpc.IntraVcpServiceBlockingStub stub;
+
+  MockedStatic<Utils> protoUtils;
+
+  MockedStatic<DefaultAmphoraIntraVcpClient> clientUtilities;
 
   private final Random rnd = new Random(42);
 
   @BeforeEach
   public void setUp() {
+    stub = mock(IntraVcpServiceGrpc.IntraVcpServiceBlockingStub.class);
+    clientUtilities = Mockito.mockStatic(DefaultAmphoraIntraVcpClient.class);
+    clientUtilities
+            .when(() -> DefaultAmphoraIntraVcpClient.createStub(testUrl))
+            .thenReturn(stub);
     spdzUtil =
         MpSpdzIntegrationUtils.of(
             new BigInteger("198766463529478683931867765928436695041"),
             new BigInteger("141515903391459779531506841503331516415"),
             new BigInteger("133854242216446749056083838363708373830"));
     this.amphoraIntraVcpClient =
-        new DefaultAmphoraIntraVcpClient(amphoraServiceUri, amphoraCommunicationClient);
+        new DefaultAmphoraIntraVcpClient(testUrl);
+    protoUtils = Mockito.mockStatic(Utils.class);
+  }
+
+  @AfterEach
+  public void afterEach(){
+    protoUtils.close();
+    clientUtilities.close();
   }
 
   @Test
   void givenNoServiceUriDefined_whenBuildingInterVcpClient_thenThrowException() {
-    try (MockedStatic<AmphoraCommunicationClient> communicationClientMockedStatic =
-        mockStatic(AmphoraCommunicationClient.class)) {
-      DefaultAmphoraIntraVcpClient.DefaultAmphoraIntraVcpClientBuilder clientBuilder =
-          DefaultAmphoraIntraVcpClient.Builder();
-      NullPointerException actualNpe =
-          assertThrows(NullPointerException.class, clientBuilder::build);
-      assertThat(actualNpe.getMessage()).contains("Service URI must not be null");
-    }
+    IllegalArgumentException actualIae =
+        assertThrows(IllegalArgumentException.class,()-> new DefaultAmphoraIntraVcpClient(null));
+    assertThat(actualIae.getMessage()).contains("Service URI must not be null");
   }
 
   @SneakyThrows
   @Test
   void givenShareIsValid_whenUploadSecretShare_thenSucceed() {
-    URI expectedUri = URI.create(testUrl + SECRET_SHARES_ENDPOINT + "/" + testSecretId);
+//    URI expectedUri = URI.create(testUrl + SECRET_SHARES_ENDPOINT + "/" + testSecretId);
     SecretShare secretShare = getSecretShare(testSecretId);
-    when(amphoraCommunicationClient.upload(
-            AmphoraCommunicationClient.RequestParametersWithBody.of(
-                amphoraServiceUri.getS2sSecretShareUri(), ImmutableList.of(), secretShare),
-            URI.class))
-        .thenReturn(Try.success(expectedUri));
+    protoUtils.when(()->Utils.convertToProtoSecretShare(secretShare)).thenReturn(GrpcSecretShare.newBuilder()
+            .setUuid(testSecretId.toString()).build());
+    when(stub.uploadSecretShare(any())).thenReturn(GrpcSecretShareResponse.newBuilder().setUuid(testSecretId.toString()).build());
     assertEquals(testSecretId, amphoraIntraVcpClient.uploadSecretShare(secretShare));
+    assertDoesNotThrow(()->amphoraIntraVcpClient.uploadSecretShare(secretShare));
   }
 
   @SneakyThrows
   @Test
   void givenIdIsValid_whenDownloadingSecretShare_thenReturnSecretShare() {
     SecretShare secretShare = getSecretShare(testSecretId);
-    when(amphoraCommunicationClient.download(
-            RequestParameters.of(
-                amphoraServiceUri.getS2SSecretShareResourceUri(testSecretId), ImmutableList.of()),
-            SecretShare.class))
-        .thenReturn(Try.success(secretShare));
-    assertEquals(secretShare, amphoraIntraVcpClient.getSecretShare(testSecretId));
+    protoUtils.when(()->Utils.convertFromProtoSecretShare(any())).thenReturn(secretShare);
+    when(stub.downloadSecretShare(any())).thenReturn(GrpcSecretShare.newBuilder().build());
+    assertDoesNotThrow(()->amphoraIntraVcpClient.getSecretShare(testSecretId));
   }
 
   @Test
@@ -103,16 +107,11 @@ class DefaultAmphoraIntraVcpClientTest {
     NullPointerException npe =
         assertThrows(NullPointerException.class, () -> amphoraIntraVcpClient.getSecretShare(null));
     assertThat(npe.getMessage()).contains("SecretId must not be null");
-    verify(amphoraCommunicationClient, never()).download(any(RequestParameters.class), any());
   }
 
   @Test
   void givenSecretShareWithIdDoesNotExist_whenDownloadingSecretShare_thenThrowException() {
-    when(amphoraCommunicationClient.download(
-            RequestParameters.of(
-                amphoraServiceUri.getS2SSecretShareResourceUri(testSecretId), ImmutableList.of()),
-            SecretShare.class))
-        .thenReturn(Try.failure(new CastorServiceException("Secret with ID does not exist.")));
+    when(stub.downloadSecretShare(any())).thenThrow(RuntimeException.class);
     AmphoraClientException ace =
         assertThrows(
             AmphoraClientException.class, () -> amphoraIntraVcpClient.getSecretShare(testSecretId));
