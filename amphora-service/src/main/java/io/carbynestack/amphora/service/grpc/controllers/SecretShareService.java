@@ -1,5 +1,6 @@
 package io.carbynestack.amphora.service.grpc.controllers;
 
+import com.google.common.base.Strings;
 import io.carbynestack.amphora.common.*;
 import io.carbynestack.amphora.common.SecretShare;
 import io.carbynestack.amphora.common.grpc.*;
@@ -67,7 +68,9 @@ public class SecretShareService extends SecretShareServiceGrpc.SecretShareServic
 
     @Override
     public void getSecretShare(GrpcSecretShareRequest request, StreamObserver<GrpcVerifiableSecretShare> responseObserver) {
-        Assert.notNull(request.getRequestId(), "Request identifier must not be omitted");
+        if(Strings.isNullOrEmpty(request.getRequestId())) {
+            throw new IllegalArgumentException("Request identifier must not be omitted");
+        }
         SecretShare secretShare = storageService.getSecretShare(UUID.fromString(request.getSecretId()));
         OutputDeliveryObject outputDeliveryObject =
                 outputDeliveryService.computeOutputDeliveryObject(secretShare, UUID.fromString(request.getRequestId()));

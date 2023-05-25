@@ -6,7 +6,6 @@
  */
 package io.carbynestack.amphora.service.grpc.controllers;
 
-import static io.carbynestack.amphora.common.rest.AmphoraRestApiEndpoints.INTRA_VCP_OPERATIONS_SEGMENT;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.*;
@@ -20,7 +19,6 @@ import io.carbynestack.amphora.common.grpc.GrpcTagRequest;
 import io.carbynestack.amphora.common.grpc.GrpcTagValueType;
 import io.carbynestack.amphora.common.grpc.GrpcUpdateTagRequest;
 import io.carbynestack.amphora.service.persistence.metadata.StorageService;
-import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -43,11 +41,13 @@ class TagsControllerTest {
   void givenSuccessfulRequest_whenGetTags_thenReturnOkWithExpectedContent() {
     List<Tag> expectedList = singletonList(testTag);
 
+    StreamObserverTestUtils.TagsStreamObserver streamObserver = new StreamObserverTestUtils.TagsStreamObserver();
+
     when(storageService.retrieveTags(testSecretId)).thenReturn(expectedList);
     assertDoesNotThrow(()->tagsService.getTags(GrpcTagRequest.newBuilder()
             .setSecretId(testSecretId.toString())
-            .build(),null));
-//    assertEquals(expectedList, actualResponse.getBody());
+            .build(),streamObserver));
+    assertEquals(expectedList, Utils.createTagListFromProto(streamObserver.grpcTagsResponse.getTagsList()));
   }
 
   @Test
@@ -62,17 +62,14 @@ class TagsControllerTest {
 
   @Test
   void givenSuccessfulRequest_whenCreateTag_thenReturnCreatedWithExpectedContent() {
-    URI expectedUri =
-        URI.create(
-            "https://amphora.carbynestack.io" + INTRA_VCP_OPERATIONS_SEGMENT + "/" + testSecretId);
-    verify(storageService, times(1)).storeTag(testSecretId, testTag);
+    StreamObserverTestUtils.TagsStreamObserver streamObserver = new StreamObserverTestUtils.TagsStreamObserver();
     assertDoesNotThrow(()->tagsService.createTag(GrpcTagRequest.newBuilder()
                     .setSecretId(testSecretId.toString())
                     .setTag(GrpcTag.newBuilder().setKey(testTag.getKey()).setValue(testTag.getValue())
                             .setValueType(GrpcTagValueType.valueOf(testTag.getValueType().name())).build())
                     .build()
-            ,null));
-//          assertEquals(expectedUri, actualResponse.getBody());
+            ,streamObserver));
+    verify(storageService, times(1)).storeTag(testSecretId, testTag);
   }
 
   @Test
@@ -91,25 +88,29 @@ class TagsControllerTest {
 
   @Test
   void givenSuccessfulRequest_whenUpdateTags_thenReturnCreatedWithExpectedContent() {
+    StreamObserverTestUtils.TagsStreamObserver tagsStreamObserver = new StreamObserverTestUtils.TagsStreamObserver();
     List<Tag> newTagList = singletonList(testTag);
     assertDoesNotThrow(()->tagsService.updateTags(
             GrpcUpdateTagRequest.newBuilder()
                     .setSecretId(testSecretId.toString())
                     .addAllTags(Utils.createTagListToProto(newTagList))
-                    .build(),null
+                    .build(),tagsStreamObserver
     ));
     verify(storageService, times(1)).replaceTags(testSecretId, newTagList);
   }
 
   @Test
   void givenSuccessfulRequest_whenGetTag_thenReturnOkWithExpectedContent() {
+    StreamObserverTestUtils.TagsStreamObserver tagsStreamObserver = new StreamObserverTestUtils.TagsStreamObserver();
     when(storageService.retrieveTag(testSecretId, testTag.getKey())).thenReturn(testTag);
 
     assertDoesNotThrow(()->tagsService.getTag(GrpcTagRequest.newBuilder()
             .setTagKey(testTag.getKey())
             .setSecretId(testSecretId.toString())
-            .build(),null));
-//    assertEquals(testTag, actualResponse.getBody());
+            .build(),tagsStreamObserver));
+    assertEquals(testTag.getKey(), tagsStreamObserver.grpcTag.getKey());
+    assertEquals(testTag.getValue(), tagsStreamObserver.grpcTag.getValue());
+    assertEquals(testTag.getValueType().name(), tagsStreamObserver.grpcTag.getValueType().name());
   }
 
   @Test
@@ -126,12 +127,12 @@ class TagsControllerTest {
 
   @Test
   void givenTagConfigurationDoesNotMatchAddressedKey_whenPutTag_thenTrowIllegalArgumentException() {
+    StreamObserverTestUtils.TagsStreamObserver tagsStreamObserver = new StreamObserverTestUtils.TagsStreamObserver();
     String nonMatchingKey = testTag.getKey() + "_different";
     IllegalArgumentException iae =
         assertThrows(
             IllegalArgumentException.class,
             () -> tagsService.putTag(GrpcTagRequest.newBuilder()
-                    .setTagKey(testTag.getKey())
                             .setTag(
                                     GrpcTag.newBuilder()
                                     .setKey(testTag.getKey())
@@ -141,16 +142,18 @@ class TagsControllerTest {
                             )
                     .setSecretId(testSecretId.toString())
                             .setTagKey(nonMatchingKey)
-                    .build(),null));
+                    .build(),tagsStreamObserver));
     verify(storageService, never()).updateTag(testSecretId, testTag);
+    String exceptionMessage = iae.getMessage();
     assertEquals(
         String.format(
-            "The defined key and tag data do not match.\n%s <> %s", nonMatchingKey, testTag),
+            "The defined key and tag data do not match.%n%s <> %s", nonMatchingKey, testTag.getKey()),
         iae.getMessage());
   }
 
   @Test
   void givenSuccessfulRequest_whenPutTag_thenReturnOk() {
+    StreamObserverTestUtils.TagsStreamObserver tagsStreamObserver = new StreamObserverTestUtils.TagsStreamObserver();
     assertDoesNotThrow(()->tagsService.putTag(GrpcTagRequest.newBuilder()
             .setTag(GrpcTag.newBuilder()
                     .setKey(testTag.getKey())
@@ -159,15 +162,16 @@ class TagsControllerTest {
                     .build())
             .setTagKey(testTag.getKey())
             .setSecretId(testSecretId.toString())
-            .build(),null));
+            .build(),tagsStreamObserver));
     verify(storageService, times(1)).updateTag(testSecretId, testTag);
   }
 
   @Test
   void givenSuccessfulRequest_whenDeleteTag_thenReturnOk() {
+    StreamObserverTestUtils.TagsStreamObserver tagsStreamObserver = new StreamObserverTestUtils.TagsStreamObserver();
     assertDoesNotThrow(()->tagsService.deleteTag(GrpcTagRequest.newBuilder()
             .setSecretId(testSecretId.toString())
-            .setTagKey(testTag.getKey()).build(),null));
+            .setTagKey(testTag.getKey()).build(),tagsStreamObserver));
     verify(storageService, times(1)).deleteTag(testSecretId, testTag.getKey());
   }
 }

@@ -29,6 +29,9 @@ public class TagsService extends TagsServiceGrpc.TagsServiceImplBase {
 
     @Override
     public void createTag(GrpcTagRequest request, StreamObserver<GrpcEmpty> responseObserver) {
+        if(request.getTag() == null || !request.hasTag()){
+            throw new IllegalArgumentException("Tag must not be empty");
+        }
         Tag tag = Tag.builder()
                 .key(request.getTag().getKey())
                 .value(request.getTag().getValue())
@@ -62,7 +65,9 @@ public class TagsService extends TagsServiceGrpc.TagsServiceImplBase {
 
     @Override
     public void putTag(GrpcTagRequest request, StreamObserver<GrpcEmpty> responseObserver) {
-        Assert.notNull(request.getTag(), "Tag must not be empty");
+        if(request.getTag() == null || !request.hasTag()){
+            throw new IllegalArgumentException("Tag must not be empty");
+        }
         GrpcTag grpcTag = request.getTag();
         if (!request.getTagKey().equals(grpcTag.getKey())) {
             throw new IllegalArgumentException(

@@ -17,13 +17,17 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.carbynestack.amphora.common.*;
+import io.carbynestack.amphora.common.grpc.GrpcEmpty;
 import io.carbynestack.amphora.common.grpc.GrpcGetObjectListRequest;
 import io.carbynestack.amphora.common.grpc.GrpcSecretShareRequest;
 import io.carbynestack.amphora.service.calculation.OutputDeliveryService;
-import io.carbynestack.amphora.service.grpc.controllers.SecretShareService;
 import io.carbynestack.amphora.service.persistence.metadata.StorageService;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+
+import io.grpc.stub.StreamObserver;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,24 +51,25 @@ class SecretShareControllerTest {
       givenSuccessfulRequestWithoutFilterAndWithoutPaging_whenGetObjectList_thenReturnExpectedContent() {
     List<Metadata> expectedMetadataList = emptyList();
     Page<Metadata> metadataSpringPage = new PageImpl<>(expectedMetadataList, Pageable.unpaged(), 0);
-    String filter = null;
+    String filter = "";
     int pageNumber = 0;
     int pageSize = 0;
-    String sortProperty = null;
-    String sortDirection = null;
+    String sortProperty = "";
+    String sortDirection = "";
     when(storageService.getSecretList(Sort.unsorted())).thenReturn(metadataSpringPage);
 
+    StreamObserverTestUtils.SecretShareStreamObserver response = new StreamObserverTestUtils.SecretShareStreamObserver();
     assertDoesNotThrow(()->        secretShareService.getObjectList(GrpcGetObjectListRequest.newBuilder()
             .setFilter(filter)
             .setPageNumber(pageNumber)
             .setPageSize(pageSize)
             .setSortProperty(sortProperty)
             .setSortDirection(sortDirection)
-            .build(),null));
-//    assertEquals(0, actualMetadataPage.getNumber());
-//    assertEquals(1, actualMetadataPage.getTotalPages());
-//    assertEquals(0, actualMetadataPage.getTotalElements());
-//    assertEquals(expectedMetadataList, actualMetadataPage.getContent());
+            .build(),response));
+    assertEquals(0, response.grpcMetadataPage.getNumber());
+    assertEquals(1, response.grpcMetadataPage.getTotalPages());
+    assertEquals(0, response.grpcMetadataPage.getTotalElements());
+    assertEquals(expectedMetadataList, response.grpcMetadataPage.getContentList());
   }
 
   @SneakyThrows
@@ -73,25 +78,26 @@ class SecretShareControllerTest {
       givenSuccessfulRequestWithoutFilterButWithPaging_whenGetObjectList_thenReturnExpectedContent() {
     List<Metadata> expectedMetadataList = emptyList();
     Page<Metadata> metadataSpringPage = new PageImpl<>(expectedMetadataList, Pageable.unpaged(), 0);
-    String filter = null;
+    String filter = "";
     int pageNumber = 0;
     int pageSize = 1;
-    String sortProperty = null;
-    String sortDirection = null;
+    String sortProperty = "";
+    String sortDirection = "";
     when(storageService.getSecretList(PageRequest.of(0, 1, Sort.unsorted())))
         .thenReturn(metadataSpringPage);
 
+    StreamObserverTestUtils.SecretShareStreamObserver response = new StreamObserverTestUtils.SecretShareStreamObserver();
     assertDoesNotThrow(()->        secretShareService.getObjectList(GrpcGetObjectListRequest.newBuilder()
             .setFilter(filter)
             .setPageNumber(pageNumber)
             .setPageSize(pageSize)
             .setSortProperty(sortProperty)
             .setSortDirection(sortDirection)
-            .build(),null));
-//    assertEquals(0, actualMetadataPage.getNumber());
-//    assertEquals(1, actualMetadataPage.getTotalPages());
-//    assertEquals(0, actualMetadataPage.getTotalElements());
-//    assertEquals(expectedMetadataList, actualMetadataPage.getContent());
+            .build(),response));
+    assertEquals(0, response.grpcMetadataPage.getNumber());
+    assertEquals(1, response.grpcMetadataPage.getTotalPages());
+    assertEquals(0, response.grpcMetadataPage.getTotalElements());
+    assertEquals(Utils.createProtoMetadataList(expectedMetadataList), response.grpcMetadataPage.getContentList());
   }
 
   @SneakyThrows
@@ -105,10 +111,12 @@ class SecretShareControllerTest {
         asList(TagFilter.with("key", "value", EQUALS), TagFilter.with("key2", "42", LESS_THAN));
     int pageNumber = 0;
     int pageSize = 0;
-    String sortProperty = null;
-    String sortDirection = null;
+    String sortProperty = "";
+    String sortDirection = "";
     when(storageService.getSecretList(expectedTagFilter, Sort.unsorted()))
         .thenReturn(metadataSpringPage);
+
+    StreamObserverTestUtils.SecretShareStreamObserver response = new StreamObserverTestUtils.SecretShareStreamObserver();
 
     assertDoesNotThrow(()->        secretShareService.getObjectList(GrpcGetObjectListRequest.newBuilder()
             .setFilter(filter)
@@ -116,11 +124,11 @@ class SecretShareControllerTest {
             .setPageSize(pageSize)
             .setSortProperty(sortProperty)
             .setSortDirection(sortDirection)
-            .build(),null));
-//    assertEquals(0, actualMetadataPage.getNumber());
-//    assertEquals(1, actualMetadataPage.getTotalPages());
-//    assertEquals(0, actualMetadataPage.getTotalElements());
-//    assertEquals(expectedMetadataList, actualMetadataPage.getContent());
+            .build(),response));
+    assertEquals(0, response.grpcMetadataPage.getNumber());
+    assertEquals(1, response.grpcMetadataPage.getTotalPages());
+    assertEquals(0, response.grpcMetadataPage.getTotalElements());
+    assertEquals(Utils.createProtoMetadataList(expectedMetadataList), response.grpcMetadataPage.getContentList());
   }
 
   @SneakyThrows
@@ -133,10 +141,12 @@ class SecretShareControllerTest {
         asList(TagFilter.with("key", "value", EQUALS), TagFilter.with("key2", "42", LESS_THAN));
     int pageNumber = 0;
     int pageSize = 1;
-    String sortProperty = null;
-    String sortDirection = null;
+    String sortProperty = "";
+    String sortDirection = "";
     when(storageService.getSecretList(expectedTagFilter, PageRequest.of(0, 1, Sort.unsorted())))
         .thenReturn(metadataSpringPage);
+
+    StreamObserverTestUtils.SecretShareStreamObserver response = new StreamObserverTestUtils.SecretShareStreamObserver();
 
     assertDoesNotThrow(()->        secretShareService.getObjectList(GrpcGetObjectListRequest.newBuilder()
             .setFilter(filter)
@@ -144,11 +154,11 @@ class SecretShareControllerTest {
             .setPageSize(pageSize)
             .setSortProperty(sortProperty)
             .setSortDirection(sortDirection)
-            .build(),null));
-//    assertEquals(0, actualMetadataPage.getNumber());
-//    assertEquals(1, actualMetadataPage.getTotalPages());
-//    assertEquals(0, actualMetadataPage.getTotalElements());
-//    assertEquals(expectedMetadataList, actualMetadataPage.getContent());
+            .build(),response));
+    assertEquals(0, response.grpcMetadataPage.getNumber());
+    assertEquals(1, response.grpcMetadataPage.getTotalPages());
+    assertEquals(0, response.grpcMetadataPage.getTotalElements());
+    assertEquals(Utils.createProtoMetadataList(expectedMetadataList), response.grpcMetadataPage.getContentList());
   }
 
   @Test
@@ -167,19 +177,22 @@ class SecretShareControllerTest {
   void givenSuccessfulRequest_whenGetSecretShare_thenReturnOkAndExpectedContent() {
     UUID secretId = UUID.fromString("3bcf8308-8f50-4d24-a37b-b0075bb5e779");
     UUID requestId = UUID.fromString("d6d0f4ff-df28-4c96-b7df-95170320eaee");
-    SecretShare secretShare = SecretShare.builder().secretId(requestId).build();
-    OutputDeliveryObject expectedOutputDeliveryObject = mock(OutputDeliveryObject.class);
+    SecretShare secretShare = SecretShare.builder().secretId(requestId).tags(new ArrayList<>()).build();
+    OutputDeliveryObject expectedOutputDeliveryObject = new OutputDeliveryObject(
+            new byte[16],new byte[16],new byte[16],new byte[16],new byte[16]
+    );
 
     when(storageService.getSecretShare(secretId)).thenReturn(secretShare);
     when(outputDeliveryService.computeOutputDeliveryObject(secretShare, requestId))
         .thenReturn(expectedOutputDeliveryObject);
+    StreamObserverTestUtils.SecretShareStreamObserver response = new StreamObserverTestUtils.SecretShareStreamObserver();
     assertDoesNotThrow(()->secretShareService.getSecretShare(GrpcSecretShareRequest.newBuilder()
             .setSecretId(secretId.toString())
             .setRequestId(requestId.toString())
-            .build(),null));
-//    assertEquals(
-//        VerifiableSecretShare.of(secretShare, expectedOutputDeliveryObject),
-//        responseEntity.getBody());
+            .build(),response));
+    assertEquals(
+        Utils.createProtoVerifiableSecretShare(secretShare, expectedOutputDeliveryObject),
+        response.grpcVerifiableSecretShare);
   }
 
   @Test
@@ -187,7 +200,22 @@ class SecretShareControllerTest {
     UUID secretId = UUID.fromString("3bcf8308-8f50-4d24-a37b-b0075bb5e779");
     assertDoesNotThrow(()->secretShareService.deleteSecretShare(GrpcSecretShareRequest.newBuilder()
             .setSecretId(secretId.toString())
-            .build(),null));
+            .build(), new StreamObserver<GrpcEmpty>() {
+      @Override
+      public void onNext(GrpcEmpty grpcEmpty) {
+
+      }
+
+      @Override
+      public void onError(Throwable throwable) {
+
+      }
+
+      @Override
+      public void onCompleted() {
+
+      }
+    }));
   }
 
   @Test
